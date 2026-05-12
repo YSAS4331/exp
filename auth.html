@@ -2,18 +2,23 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>WebAuthn OS 認証デモ</title>
+  <title>パスキー作成 & 認証 最小デモ</title>
   <style>
     body { font-family: system-ui, sans-serif; padding: 20px; }
-    button { font-size: 16px; padding: 10px 20px; }
-    pre { margin-top: 20px; background: #f5f5f5; padding: 10px; }
+    button { font-size: 16px; padding: 8px 16px; margin-right: 8px; }
+    pre { margin-top: 16px; background: #f5f5f5; padding: 8px; }
   </style>
 </head>
 <body>
-  <h1>OS 認証（WebAuthn）デモ</h1>
-  <p>ボタンを押すと OS の認証 UI（Touch ID / Face ID / Windows Hello）が出る。</p>
+  <h1>パスキー作成 & 認証 最小デモ</h1>
 
-  <button id="authBtn">認証する</button>
+  <p>
+    1. まず「パスキー作成」を押す<br>
+    2. その後「認証する」を押すと OS の認証UI（Touch ID / Face ID / Windows Hello など）が出るはず
+  </p>
+
+  <button id="reg">パスキー作成</button>
+  <button id="auth">認証する</button>
   <pre id="log"></pre>
 
   <script>
@@ -21,34 +26,73 @@
       document.getElementById("log").textContent += msg + "\n";
     };
 
-    async function verifyUser() {
-      const challenge = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
-
-      const publicKey = {
-        challenge,
-        userVerification: "required",
-        allowCredentials: [] // 既存のパスキーを自動選択
-      };
-
-      try {
-        const cred = await navigator.credentials.get({ publicKey });
-        return true;
-      } catch (err) {
-        console.error(err);
-        return false;
-      }
-    }
-
-    document.getElementById("authBtn").onclick = async () => {
-      log("認証開始...");
+    // パスキー作成
+    async function registerPasskey() {
       if (!window.PublicKeyCredential) {
-        log("このブラウザは WebAuthn に対応していません");
+        log("このブラウザは WebAuthn / パスキーに対応していません");
         return;
       }
 
-      const result = await verifyUser();
-      log("結果: " + result);
-    };
+      try {
+        const cred = await navigator.credentials.create({
+          publicKey: {
+            challenge: new Uint8Array([1, 2, 3, 4]),
+
+            rp: {
+              name: "Demo RP"
+            },
+
+            user: {
+              id: new Uint8Array([1]),          // 本来はユーザー固有のID
+              name: "user@example.com",         // 本来はユーザー名
+              displayName: "Demo User"
+            },
+
+            pubKeyCredParams: [
+              { type: "public-key", alg: -7 }   // ES256
+            ],
+
+            authenticatorSelection: {
+              userVerification: "required"
+            }
+          }
+        });
+
+        log("パスキー作成成功");
+        console.log("create result:", cred);
+      } catch (e) {
+        log("パスキー作成失敗: " + e);
+        console.error(e);
+      }
+    }
+
+    // 認証（true/false 的なやつ）
+    async function authenticatePasskey() {
+      if (!window.PublicKeyCredential) {
+        log("このブラウザは WebAuthn / パスキーに対応していません");
+        return;
+      }
+
+      try {
+        const cred = await navigator.credentials.get({
+          publicKey: {
+            challenge: new Uint8Array([9, 9, 9, 9]),
+            userVerification: "required",
+            // この origin に登録済みのパスキーを自動で探す
+            allowCredentials: []
+          }
+        });
+
+        log("認証成功 → true");
+        console.log("get result:", cred);
+      } catch (e) {
+        log("認証失敗 → false (" + e.name + ": " + e.message + ")");
+        console.error(e);
+      }
+    }
+
+    document.getElementById("reg").onclick = registerPasskey;
+    document.getElementById("auth").onclick = authenticatePasskey;
   </script>
 </body>
 </html>
