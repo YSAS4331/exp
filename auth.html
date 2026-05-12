@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>OS認証で true/false 返すデモ（なんちゃって）</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px; }
+    button { font-size: 16px; padding: 8px 16px; }
+    #log { margin-top: 16px; white-space: pre-wrap; font-family: Menlo, monospace; }
+  </style>
+</head>
+<body>
+  <h1>OS認証っぽいものを Web から呼ぶデモ</h1>
+  <p>
+    下のボタンを押すと、<strong>WebAuthn</strong> を使って OS の認証 UI（Touch ID / Face ID / Windows Hello など）が出るはず。<br>
+    成功したら <code>true</code>、失敗 or キャンセルしたら <code>false</code> を表示する。
+  </p>
+
+  <button id="btn">本人確認する</button>
+  <div id="log"></div>
+
+  <script>
+    const logEl = document.getElementById('log');
+    const btn = document.getElementById('btn');
+
+    function log(msg) {
+      logEl.textContent += msg + "\n";
+    }
+
+    async function verifyUser() {
+      // 本来はサーバーから毎回ランダム challenge をもらう
+      const challenge = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+
+      const publicKey = {
+        challenge,
+        // 既に登録済みのパスキーなどを使う想定
+        // allowCredentials を空にすると「このオリジンで使える認証器」をブラウザが選ぶ
+        allowCredentials: [],
+        userVerification: "required"
+      };
+
+      try {
+        const credential = await navigator.credentials.get({ publicKey });
+        // ここまで来たら OS 認証は成功している
+        // credential.response.authenticatorData などを本当はサーバーで検証する
+        return true;
+      } catch (e) {
+        // ユーザーキャンセル / タイムアウト / 失敗 など
+        console.error(e);
+        return false;
+      }
+    }
+
+    btn.addEventListener('click', async () => {
+      log("認証開始...");
+      if (!window.PublicKeyCredential) {
+        log("このブラウザは WebAuthn に対応していません。");
+        return;
+      }
+
+      try {
+        const result = await verifyUser();
+        log("結果: " + result);
+      } catch (e) {
+        log("エラー: " + e);
+      }
+    });
+  </script>
+</body>
+</html>
